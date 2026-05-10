@@ -55,7 +55,7 @@ Required JSON format:
   "summary": "4-5 sentences covering main topics, key context, and overall outcome of the meeting",
   "decisions": [{"decision": "clear description", "status": "confirmed|pending|deferred"}],
   "action_items": [{"task": "specific task", "owner": "person responsible", "due_date": "date or Not specified"}],
-  "follow_up_dates": ["specific dates or scheduled meetings mentioned"]
+  "follow_up_dates": ["Date with context - e.g. May 20, 2026 (Q2 prep session), May 23, 2026 (Next team review). Always include what the date is for in parentheses."]
 }
 
 Status: confirmed = decided and agreed, pending = under discussion, deferred = postponed.
@@ -364,15 +364,15 @@ function exportPdf(output, meetingType) {
 
     output.action_items.forEach((a, i) => {
       const tlines = doc.splitTextToSize(a.task, COL_W[0] - 4);
-      const rowH = Math.max(tlines.length * 4.8, 6) + 4;
+      const rowH = Math.max(tlines.length * 5.5, 7) + 4;
       check(rowH);
 
       // Alternating rows
       if (i % 2 === 0) { doc.setFillColor(...CLOUD); doc.rect(L, y - 3, CW, rowH, 'F'); }
 
-      // Task
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...CHARCOAL);
-      tlines.forEach((l, j) => doc.text(l, C1 + 2, y + j * 4.8));
+      // Task - dark grey text
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(61, 61, 61);
+      tlines.forEach((l, j) => doc.text(l, C1 + 2, y + j * 5.5));
 
       // Owner badge
       const ow = a.owner || 'Unassigned';
