@@ -122,7 +122,7 @@ function SectionHead({ label, count, copyText }) {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Eyebrow>{label}</Eyebrow>
-        {count !== undefined && <span style={{ fontSize: 11, color: C.graphite, fontWeight: 400, marginBottom: 10 }}>{count} items</span>}
+        {count !== undefined && <span style={{ fontSize: 11, color: C.graphite, fontWeight: 400, marginBottom: 10 }}>{count} {count === 1 ? "item" : "items"}</span>}
       </div>
       {copyText !== undefined && <CopyBtn text={copyText} />}
     </div>
