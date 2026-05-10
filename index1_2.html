@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claims Meeting Summariser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', 'Segoe UI', Arial, sans-serif; background: #ffffff; color: #1a1a1a; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  textarea:focus, input:focus { border-color: #1a1a1a !important; outline: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const C = {
+  primary: "#024ad8", primarySoft: "#c9e0fc",
+  canvas: "#ffffff", cloud: "#f7f7f7", fog: "#e8e8e8",
+  steel: "#c2c2c2", ink: "#1a1a1a", onInk: "#ffffff",
+  charcoal: "#3d3d3d", graphite: "#636363",
+  bloomCoral: "#ff5050", bloomRose: "#f9d4d2",
+  gemini: "#1a73e8", geminiSoft: "#e8f0fe",
+};
+const R = { md: 4, lg: 8, xl: 16, pill: 9999 };
+const softLift = "0 2px 8px rgba(26,26,26,0.08)";
+
+const TYPES = {
+  claims_review:      { label: "Claims Review",      context: "You are a Claims Operations Analyst at If Insurance (Nordic Claims Unit). Extract precise, actionable information from this claims review meeting." },
+  executive_briefing: { label: "Executive Briefing", context: "You are an Executive Assistant at If Insurance. Extract key decisions, actions, and strategic points from this executive briefing." },
+  team_standup:       { label: "Team Standup",       context: "You are a Team Coordinator at If Insurance. Extract blockers, progress updates, and next steps from this team standup." }
+};
+
+const STATUS = {
+  confirmed: { bg: C.primarySoft, color: C.primary,  border: C.primary,    label: "Confirmed" },
+  pending:   { bg: C.bloomRose,   color: "#b3262b",   border: C.bloomCoral, label: "Pending"   },
+  deferred:  { bg: C.fog,         color: C.charcoal,  border: C.steel,      label: "Deferred"  }
+};
+
+const SYSTEM_PROMPT = (ctx) => `${ctx}
+
+Analyse meeting transcripts and return structured JSON only. No markdown, no explanation, no preamble.
+
+Required JSON format:
+{
+  "summary": "4-5 sentences covering main topics, key context, and overall outcome of the meeting",
+  "decisions": [{"decision": "clear description", "status": "confirmed|pending|deferred"}],
+  "action_items": [{"task": "specific task", "owner": "person responsible", "due_date": "date or Not specified"}],
+  "follow_up_dates": ["specific dates or scheduled meetings mentioned"]
+}
+
+Status: confirmed = decided and agreed, pending = under discussion, deferred = postponed.
+Return [] for any section with no data.`;
+
+/* ── API CALLS ─────────────────────────────────────────────────── */
+function detectProvider(key) {
+  return key.trim().startsWith("sk-ant-") ? "anthropic" : "gemini";
+}
+
+async function callAnthropic(apiKey, systemPrompt, userContent) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }]
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `Anthropic API error ${res.status}`); }
+  const data = await res.json();
+  return (data?.content?.find(b => b.type === "text")?.text || "").replace(/```json|```/g, "").trim();
+}
+
+async function callGemini(apiKey, systemPrompt, userContent) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      })
+    }
+  );
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `Gemini API error ${res.status}`); }
+  const data = await res.json();
+  return (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
+}
+
+async function callAI(apiKey, systemPrompt, userContent) {
+  return detectProvider(apiKey) === "anthropic"
+    ? callAnthropic(apiKey, systemPrompt, userContent)
+    : callGemini(apiKey, systemPrompt, userContent);
+}
+
+/* ── COMPONENTS ─────────────────────────────────────────────────── */
+function Card({ children, style = {} }) {
+  return <div style={{ background: C.canvas, borderRadius: R.xl, boxShadow: softLift, padding: 24, ...style }}>{children}</div>;
+}
+function Eyebrow({ children }) {
+  return <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: C.graphite, margin: "0 0 10px" }}>{children}</p>;
+}
+function SectionHead({ label, count, copyText }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Eyebrow>{label}</Eyebrow>
+        {count !== undefined && <span style={{ fontSize: 11, color: C.graphite, fontWeight: 400, marginBottom: 10 }}>{count} items</span>}
+      </div>
+      {copyText !== undefined && <CopyBtn text={copyText} />}
+    </div>
+  );
+}
+function CopyBtn({ text }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button onClick={() => { navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); }} style={{
+      background: C.canvas, color: done ? C.primary : C.charcoal,
+      border: `1px solid ${done ? C.primary : C.steel}`,
+      borderRadius: R.md, padding: "4px 12px", fontSize: 11,
+      fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase",
+      cursor: "pointer", fontFamily: "inherit"
+    }}>{done ? "Copied" : "Copy"}</button>
+  );
+}
+
+/* ── APP ─────────────────────────────────────────────────────────── */
+function App() {
+  const [apiKey,     setApiKey]     = useState("");
+  const [showKey,    setShowKey]    = useState(false);
+  const [type,       setType]       = useState("claims_review");
+  const [transcript, setTranscript] = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [output,     setOutput]     = useState(null);
+  const [error,      setError]      = useState(null);
+  const [allCopied,  setAllCopied]  = useState(false);
+
+  const provider = apiKey.trim().length > 8 ? detectProvider(apiKey) : null;
+  const providerLabel = provider === "anthropic" ? "Claude (Anthropic)" : provider === "gemini" ? "Gemini (Google)" : null;
+  const providerColor = provider === "anthropic" ? "#d97706" : provider === "gemini" ? C.gemini : null;
+  const providerBg    = provider === "anthropic" ? "#fef3c7" : provider === "gemini" ? C.geminiSoft : null;
+
+  const run = async () => {
+    if (!apiKey.trim())     { setError("Enter your API key."); return; }
+    if (!transcript.trim()) { setError("Paste a meeting transcript first."); return; }
+    setLoading(true); setError(null); setOutput(null);
+    try {
+      const raw = await callAI(apiKey.trim(), SYSTEM_PROMPT(TYPES[type].context), `Meeting transcript:\n\n${transcript}`);
+      setOutput(JSON.parse(raw));
+    } catch (e) { setError(e.message || "Something went wrong. Try again."); }
+    finally { setLoading(false); }
+  };
+
+  const allText = output ? [
+    `SUMMARY\n${output.summary}`,
+    `\nDECISIONS\n${(output.decisions||[]).map(d=>`[${d.status?.toUpperCase()}] ${d.decision}`).join("\n")}`,
+    `\nACTION ITEMS\n${(output.action_items||[]).map(a=>`${a.task} - ${a.owner} (${a.due_date})`).join("\n")}`,
+    `\nFOLLOW-UP DATES\n${(output.follow_up_dates||[]).join("\n")||"None noted"}`
+  ].join("") : "";
+
+  const words = transcript.trim().split(/\s+/).filter(Boolean).length;
+  const inputBase = { width: "100%", padding: "10px 14px", borderRadius: R.md, border: `1px solid ${C.steel}`, fontSize: 14, fontFamily: "inherit", color: C.ink, background: C.cloud, outline: "none" };
+
+  return (
+    <div style={{ fontFamily: "'Manrope','Segoe UI',Arial,sans-serif", color: C.ink, background: C.canvas, minHeight: "100vh" }}>
+
+      {/* UTILITY STRIP */}
+      <div style={{ background: C.ink, height: 36, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 11, color: C.steel }}>Nordic Claims Unit · If Insurance</span>
+        <span style={{ fontSize: 11, color: C.steel }}>AI Enablement Tools · Internal Preview</span>
+      </div>
+
+      {/* NAV */}
+      <div style={{ background: C.canvas, borderBottom: `1px solid ${C.fog}`, height: 64, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", gap: 5 }}>
+            <div style={{ width: 5, height: 26, background: C.primary, transform: "skewX(-14deg)" }} />
+            <div style={{ width: 5, height: 26, background: C.primary, transform: "skewX(-14deg)" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1 }}>Claims Meeting Summariser</div>
+            <div style={{ fontSize: 11, color: C.graphite, marginTop: 3 }}>AI-powered · Nordic Claims Unit</div>
+          </div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 500, color: C.charcoal }}>v1.2</span>
+      </div>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px 80px" }}>
+
+        {/* API KEY */}
+        <div style={{ background: C.cloud, borderRadius: R.xl, padding: 24, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <Eyebrow>API Key</Eyebrow>
+            {providerLabel && (
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 10px", borderRadius: R.pill, background: providerBg, color: providerColor, border: `1px solid ${providerColor}` }}>
+                {providerLabel}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="Paste Anthropic (sk-ant-...) or Google Gemini API key"
+              style={{ ...inputBase, flex: 1, background: C.canvas }}
+            />
+            <button onClick={() => setShowKey(!showKey)} style={{ background: C.canvas, color: C.charcoal, border: `1px solid ${C.steel}`, borderRadius: R.md, padding: "0 16px", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+              {showKey ? "Hide" : "Show"}
+            </button>
+          </div>
+          <p style={{ fontSize: 11, color: C.graphite, marginTop: 6 }}>
+            Session only, never stored. Only Anthropic (sk-ant-...) or Google Gemini API keys will work. Provider is detected automatically from the key prefix.
+          </p>
+        </div>
+
+        {/* MEETING TYPE */}
+        <Card style={{ marginBottom: 20 }}>
+          <Eyebrow>Meeting Type</Eyebrow>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {Object.entries(TYPES).map(([key, val]) => {
+              const active = type === key;
+              return (
+                <button key={key} onClick={() => setType(key)} style={{
+                  padding: "8px 22px", borderRadius: R.pill, cursor: "pointer",
+                  background: active ? C.ink : C.canvas, color: active ? C.onInk : C.ink,
+                  border: `1.5px solid ${active ? C.ink : C.steel}`,
+                  fontSize: 14, fontWeight: 500, fontFamily: "inherit", transition: "all .15s"
+                }}>{val.label}</button>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* TRANSCRIPT */}
+        <Card style={{ marginBottom: 20 }}>
+          <Eyebrow>Meeting Transcript</Eyebrow>
+          <textarea
+            value={transcript}
+            onChange={e => setTranscript(e.target.value)}
+            placeholder="Paste the meeting transcript here. Plain text, no special formatting needed."
+            rows={11}
+            style={{ ...inputBase, resize: "vertical", lineHeight: 1.65 }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+            <span style={{ fontSize: 12, color: C.graphite }}>{words} {words === 1 ? "word" : "words"}</span>
+            <button onClick={run} disabled={loading} style={{
+              height: 44, padding: "0 32px", borderRadius: R.md, border: "none",
+              background: loading ? "#5a85f0" : C.primary, color: C.onInk,
+              fontSize: 14, fontWeight: 600, letterSpacing: "0.7px", textTransform: "uppercase",
+              cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", gap: 10, transition: "background .2s"
+            }}>
+              {loading ? <><span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Analysing</> : "Summarise Meeting"}
+            </button>
+          </div>
+        </Card>
+
+        {error && <div style={{ background: "#fff0f0", border: `1px solid ${C.bloomCoral}`, borderRadius: R.lg, padding: "12px 16px", color: "#b3262b", fontSize: 13, fontWeight: 500, marginBottom: 20 }}>{error}</div>}
+
+        {output && <>
+          <Card style={{ marginBottom: 20 }}>
+            <SectionHead label="Summary" copyText={output.summary} />
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: C.charcoal, margin: 0 }}>{output.summary}</p>
+          </Card>
+
+          <Card style={{ marginBottom: 20 }}>
+            <SectionHead label="Decisions" count={(output.decisions||[]).length} copyText={(output.decisions||[]).map(d=>`[${d.status?.toUpperCase()}] ${d.decision}`).join("\n")} />
+            {!(output.decisions||[]).length
+              ? <p style={{ color: C.graphite, fontSize: 13, margin: 0 }}>No decisions recorded.</p>
+              : <div style={{ display: "grid", gap: 8 }}>
+                  {output.decisions.map((d, i) => {
+                    const s = STATUS[d.status] || STATUS.pending;
+                    return (
+                      <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 16px", background: C.cloud, borderRadius: R.lg }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: R.pill, whiteSpace: "nowrap", background: s.bg, color: s.color, border: `1px solid ${s.border}`, letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</span>
+                        <span style={{ fontSize: 14, color: C.ink, lineHeight: 1.55 }}>{d.decision}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+            }
+          </Card>
+
+          <Card style={{ marginBottom: 20 }}>
+            <SectionHead label="Action Items" count={(output.action_items||[]).length} copyText={(output.action_items||[]).map(a=>`${a.task} - ${a.owner} (${a.due_date})`).join("\n")} />
+            {!(output.action_items||[]).length
+              ? <p style={{ color: C.graphite, fontSize: 13, margin: 0 }}>No action items recorded.</p>
+              : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${C.fog}` }}>
+                      {["Task", "Owner", "Due Date"].map(h => <th key={h} style={{ textAlign: "left", padding: "6px 12px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: C.graphite }}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {output.action_items.map((a, i) => (
+                      <tr key={i} style={{ borderBottom: i < output.action_items.length - 1 ? `1px solid ${C.cloud}` : "none" }}>
+                        <td style={{ padding: "12px 12px", color: C.ink, lineHeight: 1.45 }}>{a.task}</td>
+                        <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
+                          <span style={{ background: C.primarySoft, color: C.primary, borderRadius: R.pill, padding: "3px 12px", fontSize: 12, fontWeight: 600 }}>{a.owner || "Unassigned"}</span>
+                        </td>
+                        <td style={{ padding: "12px 12px", color: C.graphite, fontSize: 12, whiteSpace: "nowrap" }}>{a.due_date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </Card>
+
+          <Card style={{ marginBottom: 28 }}>
+            <SectionHead label="Follow-up Dates" copyText={(output.follow_up_dates||[]).join("\n")} />
+            {!(output.follow_up_dates||[]).length
+              ? <p style={{ color: C.graphite, fontSize: 13, margin: 0 }}>No follow-up dates mentioned.</p>
+              : <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {output.follow_up_dates.map((f, i) => <span key={i} style={{ background: C.cloud, color: C.ink, border: `1px solid ${C.fog}`, borderRadius: R.pill, padding: "6px 18px", fontSize: 13, fontWeight: 500 }}>{f}</span>)}
+                </div>
+            }
+          </Card>
+
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => { navigator.clipboard.writeText(allText); setAllCopied(true); setTimeout(()=>setAllCopied(false),1800); }} style={{
+              height: 44, padding: "0 28px", borderRadius: R.md, fontFamily: "inherit",
+              background: allCopied ? C.ink : C.canvas, color: allCopied ? C.onInk : C.ink,
+              border: `1.5px solid ${allCopied ? C.ink : C.steel}`,
+              fontSize: 14, fontWeight: 600, letterSpacing: "0.7px", textTransform: "uppercase",
+              cursor: "pointer", transition: "all .2s"
+            }}>{allCopied ? "Copied" : "Copy Full Summary"}</button>
+          </div>
+        </>}
+      </div>
+
+      {/* FOOTER */}
+      <div style={{ background: C.ink, padding: "40px 32px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.onInk, marginBottom: 6 }}>Claims Meeting Summariser</div>
+              <div style={{ fontSize: 11, color: C.steel }}>Nordic Claims Unit · If Insurance · AI Centre of Excellence</div>
+            </div>
+            <div style={{ flex: 1, textAlign: "right" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.onInk, marginBottom: 6 }}>Built by A H Ashik Ahmed</div>
+              <div style={{ fontSize: 11, color: C.steel }}>
+                <a href="https://www.linkedin.com/in/ashikahmed11/" target="_blank" rel="noreferrer" style={{ color: "#5a85f0", textDecoration: "none" }}>linkedin.com/in/ashikahmed11</a>
+                {" · "}
+                <a href="https://github.com/ashikdip" target="_blank" rel="noreferrer" style={{ color: "#5a85f0", textDecoration: "none" }}>github.com/ashikdip</a>
+              </div>
+            </div>
+          </div>
+          <div style={{ borderTop: "1px solid #2e2e2e", paddingTop: 16, display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.steel }}>Supports Anthropic Claude and Google Gemini · Session data is not stored</span>
+            <span style={{ fontSize: 11, color: C.steel }}>v1.2 · Internal Preview</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
