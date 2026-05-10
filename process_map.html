@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claims Meeting Summariser — Process Map</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', 'Segoe UI', Arial, sans-serif; background: #f7f7f7; color: #1a1a1a; min-height: 100vh; }
+
+  /* HEADER */
+  .util-strip { background: #1a1a1a; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; }
+  .util-strip span { font-size: 11px; color: #c2c2c2; }
+  .nav { background: #fff; border-bottom: 1px solid #e8e8e8; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; }
+  .nav-brand { display: flex; align-items: center; gap: 14px; }
+  .slash-wrap { display: flex; gap: 5px; }
+  .slash { width: 5px; height: 26px; background: #024ad8; transform: skewX(-14deg); }
+  .nav-title { font-size: 15px; font-weight: 700; line-height: 1; }
+  .nav-sub { font-size: 11px; color: #636363; margin-top: 3px; }
+  .nav-badge { font-size: 11px; font-weight: 600; background: #c9e0fc; color: #024ad8; padding: 3px 10px; border-radius: 9999px; }
+
+  /* MAIN */
+  .main { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+  .page-title { font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+  .page-sub { font-size: 13px; color: #636363; margin-bottom: 48px; }
+
+  /* PHASE */
+  .phase { margin-bottom: 8px; }
+  .phase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .phase-num { width: 28px; height: 28px; border-radius: 50%; background: #024ad8; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .phase-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+  .phase-title { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+
+  /* STEPS GRID */
+  .steps { display: grid; gap: 10px; margin-left: 40px; margin-bottom: 0; }
+  .steps-2 { grid-template-columns: 1fr 1fr; }
+  .steps-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .steps-1 { grid-template-columns: 1fr; }
+
+  .step { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px 18px; position: relative; box-shadow: 0 1px 4px rgba(26,26,26,0.06); }
+  .step-num { font-size: 10px; font-weight: 700; color: #024ad8; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .step-title { font-size: 13px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; line-height: 1.3; }
+  .step-desc { font-size: 11.5px; color: #636363; line-height: 1.55; }
+  .step-tag { display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; letter-spacing: 0.04em; }
+  .tag-api    { background: #c9e0fc; color: #024ad8; }
+  .tag-auto   { background: #dcfce7; color: #166534; }
+  .tag-user   { background: #f1f5f9; color: #475569; }
+  .tag-output { background: #fef9c3; color: #92400e; }
+
+  /* CONNECTOR */
+  .connector { display: flex; align-items: center; justify-content: center; margin: 4px 0 4px 40px; height: 28px; }
+  .connector-line { width: 2px; height: 100%; background: #e8e8e8; }
+
+  /* DECISION GATE */
+  .decision-wrap { margin-left: 40px; margin-bottom: 4px; }
+  .decision-box { background: #fff; border: 2px solid #024ad8; border-radius: 10px; padding: 16px 20px; display: flex; align-items: flex-start; gap: 16px; box-shadow: 0 1px 4px rgba(26,26,26,0.06); }
+  .decision-icon { width: 32px; height: 32px; background: #024ad8; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+  .decision-title { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+  .decision-branches { display: flex; gap: 10px; }
+  .branch { flex: 1; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; font-weight: 500; line-height: 1.4; }
+  .branch-yes { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .branch-no  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .branch-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* EXPORT BLOCK */
+  .export-wrap { margin-left: 40px; }
+  .export-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .export-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(26,26,26,0.06); }
+  .export-card.primary { border-color: #024ad8; background: #eff6ff; }
+  .export-card.dark    { border-color: #1a1a1a; background: #f8fafc; }
+  .export-icon { font-size: 20px; margin-bottom: 8px; }
+  .export-title { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .export-desc { font-size: 11px; color: #636363; line-height: 1.5; }
+  .export-tech { font-size: 10px; font-weight: 600; color: #024ad8; margin-top: 8px; }
+
+  /* FOOTER */
+  footer { background: #1a1a1a; padding: 36px 32px; }
+  .footer-inner { max-width: 860px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; }
+  .footer-left .f-title { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .footer-left .f-sub { font-size: 11px; color: #c2c2c2; }
+  .footer-right { text-align: right; }
+  .footer-right .f-title { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .footer-right a { font-size: 11px; color: #5a85f0; text-decoration: none; }
+  .footer-divider { max-width: 860px; margin: 20px auto 0; border-top: 1px solid #2e2e2e; padding-top: 14px; display: flex; justify-content: space-between; }
+  .footer-divider span { font-size: 11px; color: #636363; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="util-strip">
+  <span>Nordic Claims Unit · If Insurance</span>
+  <span>AI Enablement Tools · Internal Preview</span>
+</div>
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="slash-wrap"><div class="slash"></div><div class="slash"></div></div>
+    <div>
+      <div class="nav-title">Claims Meeting Summariser</div>
+      <div class="nav-sub">Process Map · v1.3</div>
+    </div>
+  </div>
+  <span class="nav-badge">Process Map</span>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="page-title">How it works</div>
+  <div class="page-sub">End-to-end flow from transcript input to structured output and export — Claims Meeting Summariser v1.3</div>
+
+  <!-- PHASE 1: SETUP -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num">1</div>
+      <div>
+        <div class="phase-label">Phase 1</div>
+        <div class="phase-title">Setup</div>
+      </div>
+    </div>
+    <div class="steps steps-2">
+      <div class="step">
+        <div class="step-num">Step 01</div>
+        <div class="step-title">Open the app</div>
+        <div class="step-desc">User opens the standalone HTML app via GitHub Pages. No installation, no login, no account required.</div>
+        <span class="step-tag tag-user">User action</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 02</div>
+        <div class="step-title">Paste API key</div>
+        <div class="step-desc">User pastes either an Anthropic key (sk-ant-...) or a Google Gemini key. The app detects the provider automatically and shows a badge.</div>
+        <span class="step-tag tag-auto">Auto-detected</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div></div>
+
+  <!-- PHASE 2: INPUT -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num">2</div>
+      <div>
+        <div class="phase-label">Phase 2</div>
+        <div class="phase-title">Input</div>
+      </div>
+    </div>
+    <div class="steps steps-3">
+      <div class="step">
+        <div class="step-num">Step 03</div>
+        <div class="step-title">Select meeting type</div>
+        <div class="step-desc">User chooses Claims Review, Executive Briefing, or Team Standup. Each type loads a different system prompt context.</div>
+        <span class="step-tag tag-user">User action</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 04</div>
+        <div class="step-title">Paste transcript</div>
+        <div class="step-desc">User pastes plain meeting transcript text. Live word count displayed. No special formatting needed.</div>
+        <span class="step-tag tag-user">User action</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 05</div>
+        <div class="step-title">Submit</div>
+        <div class="step-desc">User clicks Summarise Meeting. Button enters loading state with spinner. Input is locked during processing.</div>
+        <span class="step-tag tag-user">User action</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div></div>
+
+  <!-- PHASE 3: PROCESSING -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num">3</div>
+      <div>
+        <div class="phase-label">Phase 3</div>
+        <div class="phase-title">Processing</div>
+      </div>
+    </div>
+    <div class="steps steps-3">
+      <div class="step">
+        <div class="step-num">Step 06</div>
+        <div class="step-title">Build prompt</div>
+        <div class="step-desc">App combines the meeting type system context with the transcript and a strict JSON output schema including summary, decisions, action items, and follow-up dates.</div>
+        <span class="step-tag tag-auto">Automated</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 07</div>
+        <div class="step-title">Route to API</div>
+        <div class="step-desc">Based on key prefix, request is sent to Anthropic Messages API (Claude Sonnet 4) or Google Gemini API (Gemini 2.5 Flash) with JSON response mode enforced.</div>
+        <span class="step-tag tag-api">API call</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 08</div>
+        <div class="step-title">Parse response</div>
+        <div class="step-desc">Raw JSON string is stripped of markdown fences and parsed. Fields are extracted: summary, decisions[], action_items[], follow_up_dates[].</div>
+        <span class="step-tag tag-auto">Automated</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div></div>
+
+  <!-- DECISION GATE -->
+  <div class="decision-wrap">
+    <div class="decision-box">
+      <div class="decision-icon">⚡</div>
+      <div style="flex:1">
+        <div class="decision-title">Decision gate — Did the API return valid structured output?</div>
+        <div class="decision-branches">
+          <div class="branch branch-yes">
+            <div class="branch-label">Yes</div>
+            Structured output rendered in the UI. User proceeds to review and export.
+          </div>
+          <div class="branch branch-no">
+            <div class="branch-label">No</div>
+            Error message shown with the API error detail. User can adjust transcript or retry.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div></div>
+
+  <!-- PHASE 4: OUTPUT -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num">4</div>
+      <div>
+        <div class="phase-label">Phase 4</div>
+        <div class="phase-title">Output</div>
+      </div>
+    </div>
+    <div class="steps steps-2">
+      <div class="step">
+        <div class="step-num">Step 09</div>
+        <div class="step-title">Summary</div>
+        <div class="step-desc">4-5 sentence summary covering main topics, key context, and overall outcome. Copy button on the section header.</div>
+        <span class="step-tag tag-output">Rendered</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 10</div>
+        <div class="step-title">Decisions</div>
+        <div class="step-desc">Each decision tagged with a coloured status badge — Confirmed (blue), Pending (red), Deferred (grey). Item count shown in header.</div>
+        <span class="step-tag tag-output">Rendered</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 11</div>
+        <div class="step-title">Action items</div>
+        <div class="step-desc">Table with three columns: Task, Owner (blue pill), Due Date. Alternating row shading. Item count shown in header.</div>
+        <span class="step-tag tag-output">Rendered</span>
+      </div>
+      <div class="step">
+        <div class="step-num">Step 12</div>
+        <div class="step-title">Follow-up dates</div>
+        <div class="step-desc">Each date rendered as a chip with context label in parentheses — e.g. May 20, 2026 (Q2 prep session).</div>
+        <span class="step-tag tag-output">Rendered</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div></div>
+
+  <!-- PHASE 5: EXPORT -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num">5</div>
+      <div>
+        <div class="phase-label">Phase 5</div>
+        <div class="phase-title">Export</div>
+      </div>
+    </div>
+    <div class="export-wrap">
+      <div class="export-grid">
+        <div class="export-card">
+          <div class="export-icon">📋</div>
+          <div class="export-title">Copy Text</div>
+          <div class="export-desc">Full summary copied to clipboard as plain text. All four sections included, labelled and separated.</div>
+          <div class="export-tech">Clipboard API</div>
+        </div>
+        <div class="export-card primary">
+          <div class="export-icon">📄</div>
+          <div class="export-title">Export DOCX</div>
+          <div class="export-desc">Formatted Word document with HP-styled section headers, coloured decision badges, and action items table. Downloaded directly.</div>
+          <div class="export-tech">docx.js v7</div>
+        </div>
+        <div class="export-card dark">
+          <div class="export-icon">🖨️</div>
+          <div class="export-title">Export PDF</div>
+          <div class="export-desc">A4 PDF with Electric Blue header band, double-slash motif, coloured badges, vertically centred table rows, follow-up date chips, and page footer.</div>
+          <div class="export-tech">jsPDF v2.5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <div class="f-title">Claims Meeting Summariser</div>
+      <div class="f-sub">Nordic Claims Unit · If Insurance · AI Centre of Excellence</div>
+    </div>
+    <div class="footer-right">
+      <div class="f-title">Built by A H Ashik Ahmed</div>
+      <a href="https://www.linkedin.com/in/ashikahmed11/">linkedin.com/in/ashikahmed11</a>
+      <span style="color:#636363"> · </span>
+      <a href="https://github.com/ashikdip">github.com/ashikdip</a>
+    </div>
+  </div>
+  <div class="footer-divider">
+    <span>Supports Anthropic Claude and Google Gemini · Session data is not stored</span>
+    <span>v1.3 · Internal Preview</span>
+  </div>
+</footer>
+
+</body>
+</html>
