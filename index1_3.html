@@ -225,96 +225,216 @@ function exportDocx(output, meetingType) {
 function exportPdf(output, meetingType) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const W = 210, L = 15, R = 195, cw = R - L;
-  let y = 20;
+  const W = 210, L = 16, R = 194, CW = R - L;
+  let y = 0;
 
-  const line = () => { doc.setDrawColor(2, 74, 216); doc.setLineWidth(0.4); doc.line(L, y, R, y); y += 5; };
-  const check = () => { if (y > 270) { doc.addPage(); y = 20; } };
+  /* ── COLOURS ── */
+  const PRIMARY  = [2, 74, 216];
+  const INK      = [26, 26, 26];
+  const CHARCOAL = [61, 61, 61];
+  const GRAPHITE = [99, 99, 99];
+  const CLOUD    = [247, 247, 247];
+  const FOG      = [232, 232, 232];
+  const WHITE    = [255, 255, 255];
+  const STATUS_C = { confirmed: [2,74,216], pending: [179,38,43], deferred: [99,99,99] };
+  const STATUS_BG = { confirmed: [201,224,252], pending: [249,212,210], deferred: [232,232,232] };
+
+  /* ── HELPERS ── */
+  const newPage = () => { doc.addPage(); y = 28; };
+  const check = (h = 10) => { if (y + h > 276) newPage(); };
+
+  const secHead = (title) => {
+    check(14);
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GRAPHITE);
+    doc.text(title.toUpperCase(), L, y);
+    y += 2;
+    doc.setDrawColor(...PRIMARY);
+    doc.setLineWidth(0.5);
+    doc.line(L, y, R, y);
+    y += 5;
+  };
+
+  const badge = (status, x, bY) => {
+    const label = (status || 'pending').toUpperCase();
+    const bg = STATUS_BG[status] || STATUS_BG.deferred;
+    const fg = STATUS_C[status] || STATUS_C.deferred;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    const tw = doc.getTextWidth(label);
+    const pw = tw + 4, ph = 4.5;
+    doc.setFillColor(...bg);
+    doc.roundedRect(x, bY - 3.5, pw, ph, 1, 1, 'F');
+    doc.setTextColor(...fg);
+    doc.text(label, x + 2, bY);
+    return pw + 3;
+  };
+
+  /* ══ HEADER BAND ══════════════════════════════════════════════ */
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, 0, W, 28, 'F');
+
+  // Double-slash motif
+  const slash = (sx) => {
+    doc.setFillColor(...WHITE);
+    doc.setDrawColor(...WHITE);
+    const pts = [[sx, 6], [sx+3, 6], [sx+1, 22], [sx-2, 22]];
+    // Draw as filled polygon using lines
+    doc.setLineWidth(0);
+    // Use triangle approximation
+    doc.triangle(pts[0][0], pts[0][1], pts[1][0], pts[1][1], pts[2][0], pts[2][1], 'F');
+    doc.triangle(pts[0][0], pts[0][1], pts[2][0], pts[2][1], pts[3][0], pts[3][1], 'F');
+  };
+  slash(L);
+  slash(L + 6);
 
   // Title
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(26, 26, 26);
-  doc.text('Claims Meeting Summary', L, y); y += 7;
-  doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(99, 99, 99);
-  doc.text(meetingType + ' · ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), L, y); y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(...WHITE);
+  doc.text('Claims Meeting Summary', L + 16, 13);
 
-  // Summary
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(26, 26, 26);
-  doc.text('SUMMARY', L, y); y += 2; line();
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(61, 61, 61);
-  const sumLines = doc.splitTextToSize(output.summary, cw);
-  sumLines.forEach(l => { check(); doc.text(l, L, y); y += 5; }); y += 4;
+  // Subtitle
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(201, 224, 252);
+  doc.text(meetingType + '  ·  ' + dateStr, L + 16, 21);
 
-  // Decisions
-  check();
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(26, 26, 26);
-  doc.text('DECISIONS', L, y); y += 2; line();
+  y = 38;
+
+  /* ══ SUMMARY ════════════════════════════════════════════════ */
+  secHead('Summary');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...CHARCOAL);
+  const sumLines = doc.splitTextToSize(output.summary, CW);
+  sumLines.forEach(l => { check(6); doc.text(l, L, y); y += 5; });
+  y += 4;
+
+  /* ══ DECISIONS ══════════════════════════════════════════════ */
+  secHead('Decisions');
   if (!output.decisions || !output.decisions.length) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(99,99,99); doc.text('No decisions recorded.', L, y); y += 8;
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(...GRAPHITE);
+    doc.text('No decisions recorded.', L, y); y += 8;
   } else {
     output.decisions.forEach(d => {
-      check();
-      const sc = { confirmed: [2,74,216], pending: [179,38,43], deferred: [99,99,99] };
-      const c = sc[d.status] || sc.deferred;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...c);
-      const tag = '[' + (d.status || 'pending').toUpperCase() + '] ';
-      doc.text(tag, L + 3, y);
-      const tw = doc.getTextWidth(tag);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(61,61,61);
-      const dlines = doc.splitTextToSize(d.decision, cw - tw - 3);
-      dlines.forEach((l, i) => { doc.text(l, L + 3 + (i === 0 ? tw : 0), i === 0 ? y : y + i*5); });
-      y += Math.max(dlines.length * 5, 5) + 2;
+      const textWidth = CW - 28;
+      const dlines = doc.splitTextToSize(d.decision, textWidth);
+      const rowH = Math.max(dlines.length * 5, 7) + 4;
+      check(rowH);
+
+      // Row background
+      doc.setFillColor(...CLOUD);
+      doc.roundedRect(L, y - 4, CW, rowH, 1.5, 1.5, 'F');
+
+      // Badge
+      const bw = badge(d.status, L + 2, y);
+
+      // Decision text
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(...INK);
+      dlines.forEach((l, i) => doc.text(l, L + 2 + bw, y + i * 5));
+
+      y += rowH + 2;
     });
   }
   y += 4;
 
-  // Action Items
-  check();
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(26,26,26);
-  doc.text('ACTION ITEMS', L, y); y += 2; line();
+  /* ══ ACTION ITEMS ═══════════════════════════════════════════ */
+  secHead('Action Items');
   if (!output.action_items || !output.action_items.length) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(99,99,99); doc.text('No action items recorded.', L, y); y += 8;
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(...GRAPHITE);
+    doc.text('No action items recorded.', L, y); y += 8;
   } else {
-    const cols = [L, L+95, L+140];
-    doc.setFillColor(247,247,247); doc.rect(L, y-4, cw, 7, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(99,99,99);
-    doc.text('TASK', cols[0], y); doc.text('OWNER', cols[1], y); doc.text('DUE DATE', cols[2], y); y += 4;
-    doc.setDrawColor(232,232,232); doc.setLineWidth(0.2); doc.line(L, y, R, y); y += 3;
+    const C1 = L, C2 = L + 92, C3 = L + 142;
+    const COL_W = [88, 46, CW - 142 + L];
+
+    // Table header
+    doc.setFillColor(...INK);
+    doc.rect(L, y - 4, CW, 8, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...WHITE);
+    doc.text('TASK', C1 + 2, y);
+    doc.text('OWNER', C2 + 2, y);
+    doc.text('DUE DATE', C3 + 2, y);
+    y += 6;
+
     output.action_items.forEach((a, i) => {
-      check();
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(61,61,61);
-      const tlines = doc.splitTextToSize(a.task, 88);
-      tlines.forEach((l, j) => doc.text(l, cols[0], y + j*4.5));
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(2,74,216);
-      doc.text(a.owner || 'Unassigned', cols[1], y);
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(99,99,99);
-      doc.text(a.due_date, cols[2], y);
-      y += Math.max(tlines.length * 4.5, 5) + 2;
-      if (i < output.action_items.length - 1) { doc.setDrawColor(247,247,247); doc.line(L, y, R, y); y += 1; }
+      const tlines = doc.splitTextToSize(a.task, COL_W[0] - 4);
+      const rowH = Math.max(tlines.length * 4.8, 6) + 4;
+      check(rowH);
+
+      // Alternating rows
+      if (i % 2 === 0) { doc.setFillColor(...CLOUD); doc.rect(L, y - 3, CW, rowH, 'F'); }
+
+      // Task
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...CHARCOAL);
+      tlines.forEach((l, j) => doc.text(l, C1 + 2, y + j * 4.8));
+
+      // Owner badge
+      const ow = a.owner || 'Unassigned';
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      const oww = doc.getTextWidth(ow) + 5;
+      doc.setFillColor(...STATUS_BG.confirmed);
+      doc.roundedRect(C2 + 1, y - 3.2, oww, 5, 1, 1, 'F');
+      doc.setTextColor(...PRIMARY);
+      doc.text(ow, C2 + 3, y);
+
+      // Due date
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GRAPHITE);
+      doc.text(a.due_date, C3 + 2, y);
+
+      y += rowH;
     });
-  }
-  y += 4;
 
-  // Follow-up Dates
-  check();
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(26,26,26);
-  doc.text('FOLLOW-UP DATES', L, y); y += 2; line();
+    // Table bottom border
+    doc.setDrawColor(...FOG); doc.setLineWidth(0.3); doc.line(L, y, R, y);
+  }
+  y += 6;
+
+  /* ══ FOLLOW-UP DATES ════════════════════════════════════════ */
+  secHead('Follow-up Dates');
   if (!output.follow_up_dates || !output.follow_up_dates.length) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(99,99,99); doc.text('No follow-up dates mentioned.', L, y); y += 8;
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(...GRAPHITE);
+    doc.text('No follow-up dates mentioned.', L, y); y += 8;
   } else {
-    output.follow_up_dates.forEach(f => { check(); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(61,61,61); doc.text('• ' + f, L+3, y); y += 6; });
+    const chips = output.follow_up_dates;
+    let cx = L;
+    chips.forEach(f => {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      const fw = doc.getTextWidth(f) + 8;
+      if (cx + fw > R) { cx = L; y += 8; }
+      check(8);
+      doc.setFillColor(...CLOUD);
+      doc.setDrawColor(...FOG);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(cx, y - 3.5, fw, 5.5, 1.5, 1.5, 'FD');
+      doc.setTextColor(...INK);
+      doc.text(f, cx + 4, y);
+      cx += fw + 3;
+    });
+    y += 10;
   }
 
-  // Footer
+  /* ══ FOOTER ═════════════════════════════════════════════════ */
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(99,99,99);
-    doc.text('Built by A H Ashik Ahmed · linkedin.com/in/ashikahmed11', L, 288);
-    doc.text('Page ' + i + ' of ' + pages, R, 288, { align: 'right' });
+    doc.setFillColor(...CLOUD);
+    doc.rect(0, 284, W, 13, 'F');
+    doc.setDrawColor(...FOG); doc.setLineWidth(0.3); doc.line(0, 284, W, 284);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GRAPHITE);
+    doc.text('Built by A H Ashik Ahmed  ·  linkedin.com/in/ashikahmed11  ·  github.com/ashikdip', L, 290);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Page ' + i + ' of ' + pages, R, 290, { align: 'right' });
   }
 
   doc.save(getFilename('pdf'));
 }
+
 
 function App() {
   const [apiKey,     setApiKey]     = useState("");
