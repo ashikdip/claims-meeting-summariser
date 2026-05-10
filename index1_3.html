@@ -363,29 +363,37 @@ function exportPdf(output, meetingType) {
     y += 6;
 
     output.action_items.forEach((a, i) => {
-      const tlines = doc.splitTextToSize(a.task, COL_W[0] - 4);
-      const rowH = Math.max(tlines.length * 5.5, 7) + 4;
+      const tlines = doc.splitTextToSize(a.task, COL_W[0] - 8);
+      const lineH = 5.5;
+      const textBlockH = tlines.length * lineH;
+      const rowH = Math.max(textBlockH + 10, 14);
       check(rowH);
 
+      const rowTop = y;
+
       // Alternating rows
-      if (i % 2 === 0) { doc.setFillColor(...CLOUD); doc.rect(L, y - 3, CW, rowH, 'F'); }
+      if (i % 2 === 0) { doc.setFillColor(...CLOUD); doc.rect(L, rowTop, CW, rowH, 'F'); }
 
-      // Task - dark grey text
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(61, 61, 61);
-      tlines.forEach((l, j) => doc.text(l, C1 + 2, y + j * 5.5));
+      // Vertical centre for single-line baseline (3.2mm = approx half of 9pt)
+      const textStartY = rowTop + (rowH - textBlockH) / 2 + 3.2;
 
-      // Owner badge
+      // Task - GRAPHITE colour, horizontally padded, vertically centred
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(99, 99, 99);
+      tlines.forEach((l, j) => doc.text(l, C1 + 4, textStartY + j * lineH));
+
+      // Owner badge - vertically centred
       const ow = a.owner || 'Unassigned';
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-      const oww = doc.getTextWidth(ow) + 5;
+      const oww = doc.getTextWidth(ow) + 7;
+      const badgeTop = rowTop + (rowH - 5.5) / 2;
       doc.setFillColor(...STATUS_BG.confirmed);
-      doc.roundedRect(C2 + 1, y - 3.2, oww, 5, 1, 1, 'F');
+      doc.roundedRect(C2 + 3, badgeTop, oww, 5.5, 1.2, 1.2, 'F');
       doc.setTextColor(...PRIMARY);
-      doc.text(ow, C2 + 3, y);
+      doc.text(ow, C2 + 6, badgeTop + 3.9);
 
-      // Due date
+      // Due date - vertically centred
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GRAPHITE);
-      doc.text(a.due_date, C3 + 2, y);
+      doc.text(a.due_date, C3 + 4, rowTop + rowH / 2 + 1.5);
 
       y += rowH;
     });
