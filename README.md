@@ -1,6 +1,6 @@
 # Claims Meeting Summariser
 
-AI-powered meeting analysis tool built for the Nordic Claims Unit at If Insurance. Paste a meeting transcript, get back a structured summary with decisions, action items, and follow-up dates — instantly.
+AI-powered meeting analysis tool built for the Nordic Claims Unit at If Insurance. Paste a meeting transcript and get back a structured summary with decisions, action items, and follow-up dates.
 
 Built with the Claude API and styled using the HP design system.
 
@@ -12,7 +12,7 @@ Built with the Claude API and styled using the HP design system.
 - **Extracts decisions** and tags each as Confirmed, Pending, or Deferred
 - **Lists action items** with owner and due date in a clean table
 - **Captures follow-up dates** mentioned in the meeting
-- **Copy to clipboard** — each section individually or the full summary at once
+- **Copy to clipboard** for each section individually or the full summary at once
 
 Supports three meeting contexts: Claims Review, Executive Briefing, and Team Standup. Each context uses a tailored prompt to improve extraction accuracy.
 
@@ -24,14 +24,14 @@ Supports three meeting contexts: Claims Review, Executive Briefing, and Team Sta
 |---|---|
 | UI | React (single-file SPA) |
 | AI | Claude Sonnet 4 via Anthropic Messages API |
-| Design | HP design system — Manrope font, Electric Blue `#024ad8`, Ink `#1a1a1a` |
-| Auth | API key handled by the artifact proxy — no key input required for demo |
+| Design | HP design system; Manrope font, Electric Blue `#024ad8`, Ink `#1a1a1a` |
+| Auth | API key handled by the artifact proxy; no key input required for demo |
 
 ---
 
 ## Demo
 
-Open `claims_summariser_final.jsx` as a Claude artifact to run the live demo. The Anthropic API is proxied automatically — no setup needed.
+Open `claims_summariser_final.jsx` as a Claude artifact to run the live demo. The Anthropic API is proxied automatically; no setup needed.
 
 ---
 
@@ -74,11 +74,11 @@ Then update the fetch URL in `callClaude()` from `https://api.anthropic.com/v1/m
 
 ## Project context
 
-Built as a demo project for the **If Insurance AI Enablement Assistant** role (Nordic Claims Unit, Espoo). The goal was to show a working AI tool that connects directly to a real HR/claims workflow — not a slide deck about AI.
+Built as a demo project for the **If Insurance AI Enablement Assistant** role (Nordic Claims Unit, Espoo). The goal was to show a working AI tool that connects directly to a real HR/claims workflow, not a slide deck about AI.
 
 Related projects:
-- [hr-desk](https://github.com/ashikdip/hr-desk) — AI-powered HR helpdesk, bilingual EN/FI, covers Finnish labour law (Vuosilomalaki)
-- [nagad-recruitment-analytics](https://github.com/ashikdip/nagad-recruitment-analytics) — Recruitment funnel analytics dashboard (Python, SQL, Chart.js)
+- [hr-desk](https://github.com/ashikdip/hr-desk): AI-powered HR helpdesk, bilingual EN/FI, covers Finnish labour law (Vuosilomalaki)
+- [nagad-recruitment-analytics](https://github.com/ashikdip/nagad-recruitment-analytics): Recruitment funnel analytics dashboard (Python, SQL, Chart.js)
 
 ---
 
